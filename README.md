@@ -16,16 +16,4 @@
   - **Explain Your Reasoning — Deep Fold:** Open-ended conceptual grading.
 - **Progress Map:** Interactive paper-island skill tree with red crease indicators for weak topics.
 - **Live LLM + Simulated Fallback:** Uses `GEMINI_API_KEY` or `OPENAI_API_KEY` securely via the Express backend, or falls back cleanly to Simulated Origami AI.
-
-## Local Development
-```bash
-npm install
-copy .env.example .env   # Optional: add GEMINI_API_KEY or OPENAI_API_KEY
-npm run dev
-```
-
-## Production Build & Public Hosting
-```bash
-npm run build
-npm start
-```
+ 

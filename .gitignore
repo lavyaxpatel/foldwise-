@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist-server/
+.env
+server/data/users.json
+*.log
+*.tsbuildinfo

@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-ivory: #f8f4ec;
+  --bg-paper: #eae2d3;
+  --ink: #1e1d1b;
+  --vermilion: #c8433a;
+  --sage: #7f967b;
+  --dusty: #5d819e;
+  --gold: #b8924a;
+  --lavender: #aca0c6;
+}
+
+/* Skin themes */
+[data-skin='vermilion-gold'] {
+  --bg-ivory: #fbf4eb;
+  --bg-paper: #eedec8;
+}
+[data-skin='indigo-mist'] {
+  --bg-ivory: #f3f6f9;
+  --bg-paper: #e0e7ef;
+}
+[data-skin='sakura-parchment'] {
+  --bg-ivory: #fbf3f2;
+  --bg-paper: #efdddb;
+}
+
+body {
+  background-color: var(--bg-ivory);
+  color: var(--ink);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background-image:
+    radial-gradient(circle at 15% 12%, rgba(184, 146, 74, 0.09), transparent 42%),
+    radial-gradient(circle at 88% 78%, rgba(93, 129, 158, 0.08), transparent 44%),
+    linear-gradient(to right, rgba(30, 29, 27, 0.022) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30, 29, 27, 0.022) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+
+/* Japanese Washi & architectural drafting paper surface */
+.washi-surface {
+  position: relative;
+  background-color: var(--bg-ivory);
+}
+
+/* Layered paper card with crisp folded dog-ear & drafting border */
+.paper-card {
+  position: relative;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(248, 244, 236, 0.96) 62%,
+    rgba(234, 226, 211, 0.65) 100%
+  );
+  border: 1px solid rgba(30, 29, 27, 0.11);
+  box-shadow:
+    0 12px 30px -15px rgba(30, 29, 27, 0.14),
+    0 1px 4px rgba(30, 29, 27, 0.05);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms ease;
+}
+
+.paper-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(
+    225deg,
+    var(--bg-ivory) 48%,
+    rgba(30, 29, 27, 0.16) 50%,
+    #ede5d6 55%,
+    #fbf8f2 100%
+  );
+  border-bottom-left-radius: 3px;
+  pointer-events: none;
+  transition: width 220ms ease, height 220ms ease;
+}
+
+.paper-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 20px 38px -16px rgba(30, 29, 27, 0.16),
+    0 4px 10px -2px rgba(30, 29, 27, 0.06);
+}
+
+.paper-card:hover::after {
+  width: 28px;
+  height: 28px;
+}
+
+/* Traditional Hanko seal stamp */
+.hanko-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #c8433a;
+  color: #c8433a;
+  font-family: 'Fraunces', serif;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 0 0 1px rgba(200, 67, 58, 0.25);
+}
+
+.crease-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(30, 29, 27, 0.18) 18%,
+    rgba(184, 146, 74, 0.5) 50%,
+    rgba(30, 29, 27, 0.18) 82%,
+    transparent 100%
+  );
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(30, 29, 27, 0.18);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(30, 29, 27, 0.32);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

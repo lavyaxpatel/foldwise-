@@ -1,0 +1,43 @@
+{
+  "name": "foldwise",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FoldWise — An Origami-Themed Gamified AI Tutor (Where learning takes shape.)",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "tsc -b && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "start": "tsx server/index.ts",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.114.3",
+    "@react-three/fiber": "^8.17.10",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "framer-motion": "^11.11.17",
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

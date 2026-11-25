@@ -5,7 +5,7 @@ import type { FoldWiseState, GradeLevel } from '../src/types/foldwise.js';
 
 export interface StoredUserRecord {
   id: string;
-  nameKey: string; // normalized lowercase full name for lookup
+  nameKey: string;
   name: string;
   grade: GradeLevel;
   passwordHash: string;
@@ -67,17 +67,12 @@ function toPublicUser(u: StoredUserRecord): PublicUser {
   };
 }
 
-/**
- * Unified Login / Auto-Enroll by Full Name + Password + Grade.
- * - If scholar exists: verifies password, updates grade if changed, and returns saved progress.
- * - If scholar is new: creates their stored record starting at 0 XP with chosen grade.
- */
-export function loginOrCreateUser(params: {
+export function registerUser(params: {
   fullName: string;
   password: string;
   grade: GradeLevel;
   initialState: FoldWiseState;
-}): { token: string; user: PublicUser; state: FoldWiseState; isNew: boolean } | { error: string } {
+}): { token: string; user: PublicUser; state: FoldWiseState } | { error: string } {
   const cleanName = params.fullName.trim();
   if (cleanName.length < 2) {
     return { error: 'Please enter your full name (at least 2 characters).' };
@@ -88,42 +83,8 @@ export function loginOrCreateUser(params: {
 
   const nameKey = cleanName.toLowerCase();
   const users = readUsers();
-  const existingIdx = users.findIndex((u) => u.nameKey === nameKey);
-
-  if (existingIdx !== -1) {
-    const found = users[existingIdx];
-    const candidateHash = hashPassword(params.password, found.salt);
-    const valid = crypto.timingSafeEqual(
-      Buffer.from(candidateHash, 'hex'),
-      Buffer.from(found.passwordHash, 'hex')
-    );
-    if (!valid) {
-      return { error: 'Incorrect password for this scholar name.' };
-    }
-
-    const now = new Date().toISOString();
-    const updatedState: FoldWiseState = {
-      ...found.state,
-      studentName: cleanName,
-      studentGrade: params.grade || found.grade,
-    };
-    users[existingIdx] = {
-      ...found,
-      name: cleanName,
-      grade: params.grade || found.grade,
-      updatedAt: now,
-      state: updatedState,
-    };
-    writeUsers(users);
-
-    const token = crypto.randomBytes(32).toString('hex');
-    sessions.set(token, found.id);
-    return {
-      token,
-      user: toPublicUser(users[existingIdx]),
-      state: updatedState,
-      isNew: false,
-    };
+  if (users.some((u) => u.nameKey === nameKey)) {
+    return { error: 'An account with this name already exists. Please Sign In instead.' };
   }
 
   const salt = crypto.randomBytes(16).toString('hex');
@@ -155,7 +116,39 @@ export function loginOrCreateUser(params: {
     token,
     user: toPublicUser(record),
     state: record.state,
-    isNew: true,
+  };
+}
+
+export function loginUser(params: {
+  fullName: string;
+  password: string;
+}): { token: string; user: PublicUser; state: FoldWiseState } | { error: string } {
+  const cleanName = params.fullName.trim();
+  if (cleanName.length < 2) {
+    return { error: 'Please enter your full name.' };
+  }
+  const nameKey = cleanName.toLowerCase();
+  const users = readUsers();
+  const found = users.find((u) => u.nameKey === nameKey);
+  if (!found) {
+    return { error: 'No account found for this name. Switch to Create Account to make one.' };
+  }
+
+  const candidateHash = hashPassword(params.password, found.salt);
+  const valid = crypto.timingSafeEqual(
+    Buffer.from(candidateHash, 'hex'),
+    Buffer.from(found.passwordHash, 'hex')
+  );
+  if (!valid) {
+    return { error: 'Incorrect password. Please try again.' };
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  sessions.set(token, found.id);
+  return {
+    token,
+    user: toPublicUser(found),
+    state: found.state,
   };
 }
 

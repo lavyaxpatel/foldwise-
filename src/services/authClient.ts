@@ -4,7 +4,6 @@ export interface AuthPayload {
   token: string;
   user: AuthUser;
   state: FoldWiseState;
-  isNew: boolean;
   storageMode: 'server' | 'local';
 }
 
@@ -40,52 +39,80 @@ function writeLocalAccounts(records: LocalAccountRecord[]) {
   }
 }
 
-export async function apiLoginOrEnroll(params: {
+function mirrorLocalAccount(params: {
+  id: string;
+  name: string;
+  grade: GradeLevel;
+  password?: string;
+  createdAt: string;
+  updatedAt: string;
+  state: FoldWiseState;
+}) {
+  const nameKey = params.name.trim().toLowerCase();
+  const accounts = readLocalAccounts();
+  const idx = accounts.findIndex((a) => a.nameKey === nameKey);
+  if (idx !== -1) {
+    accounts[idx] = {
+      ...accounts[idx],
+      name: params.name,
+      grade: params.grade,
+      password: params.password ?? accounts[idx].password,
+      updatedAt: params.updatedAt,
+      state: params.state,
+    };
+  } else {
+    accounts.push({
+      id: params.id,
+      nameKey,
+      name: params.name,
+      grade: params.grade,
+      password: params.password || '',
+      createdAt: params.createdAt,
+      updatedAt: params.updatedAt,
+      state: params.state,
+    });
+  }
+  writeLocalAccounts(accounts);
+}
+
+export async function apiRegister(params: {
   fullName: string;
   password: string;
   grade: GradeLevel;
   initialState: FoldWiseState;
 }): Promise<AuthPayload | { error: string }> {
+  const cleanName = params.fullName.trim();
+  if (cleanName.length < 2) return { error: 'Please enter your full name (at least 2 characters).' };
+  if (params.password.length < 4) return { error: 'Password must be at least 4 characters.' };
+
   try {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
     const data = await res.json();
-    if (!res.ok) return { error: data.error || 'Login failed' };
-    return { ...(data as Omit<AuthPayload, 'storageMode'>), storageMode: 'server' };
-  } catch {
-    const cleanName = params.fullName.trim();
-    if (cleanName.length < 2) return { error: 'Please enter your full name.' };
-    if (params.password.length < 4) return { error: 'Password must be at least 4 characters.' };
+    if (!res.ok) return { error: data.error || 'Could not create account.' };
 
+    const payload = data as Omit<AuthPayload, 'storageMode'>;
+    mirrorLocalAccount({
+      ...payload.user,
+      password: params.password,
+      state: payload.state,
+    });
+    return { ...payload, storageMode: 'server' };
+  } catch {
     const nameKey = cleanName.toLowerCase();
     const accounts = readLocalAccounts();
-    const idx = accounts.findIndex((a) => a.nameKey === nameKey);
-    const now = new Date().toISOString();
-
-    if (idx !== -1) {
-      const found = accounts[idx];
-      if (found.password !== params.password) {
-        return { error: 'Incorrect password for this scholar name.' };
-      }
-      const nextState: FoldWiseState = {
-        ...found.state,
-        studentName: cleanName,
-        studentGrade: params.grade,
-      };
-      accounts[idx] = { ...found, grade: params.grade, updatedAt: now, state: nextState };
-      writeLocalAccounts(accounts);
-      return {
-        token: `local-token:${nameKey}`,
-        user: { id: found.id, name: cleanName, grade: params.grade, createdAt: found.createdAt, updatedAt: now },
-        state: nextState,
-        isNew: false,
-        storageMode: 'local',
-      };
+    if (accounts.some((a) => a.nameKey === nameKey)) {
+      return { error: 'An account with this name already exists. Please Sign In instead.' };
     }
-
+    const now = new Date().toISOString();
+    const state: FoldWiseState = {
+      ...params.initialState,
+      studentName: cleanName,
+      studentGrade: params.grade,
+    };
     const record: LocalAccountRecord = {
       id: `local-${Date.now()}`,
       nameKey,
@@ -94,15 +121,61 @@ export async function apiLoginOrEnroll(params: {
       password: params.password,
       createdAt: now,
       updatedAt: now,
-      state: { ...params.initialState, studentName: cleanName, studentGrade: params.grade },
+      state,
     };
     accounts.push(record);
     writeLocalAccounts(accounts);
     return {
       token: `local-token:${nameKey}`,
       user: { id: record.id, name: cleanName, grade: params.grade, createdAt: now, updatedAt: now },
-      state: record.state,
-      isNew: true,
+      state,
+      storageMode: 'local',
+    };
+  }
+}
+
+export async function apiLogin(params: {
+  fullName: string;
+  password: string;
+}): Promise<AuthPayload | { error: string }> {
+  const cleanName = params.fullName.trim();
+  if (cleanName.length < 2) return { error: 'Please enter your full name.' };
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data.error || 'Sign in failed.' };
+
+    const payload = data as Omit<AuthPayload, 'storageMode'>;
+    mirrorLocalAccount({
+      ...payload.user,
+      password: params.password,
+      state: payload.state,
+    });
+    return { ...payload, storageMode: 'server' };
+  } catch {
+    const nameKey = cleanName.toLowerCase();
+    const found = readLocalAccounts().find((a) => a.nameKey === nameKey);
+    if (!found) {
+      return { error: 'No account found for this name. Switch to Create Account to make one.' };
+    }
+    if (found.password !== params.password) {
+      return { error: 'Incorrect password. Please try again.' };
+    }
+    return {
+      token: `local-token:${nameKey}`,
+      user: {
+        id: found.id,
+        name: found.name,
+        grade: found.grade,
+        createdAt: found.createdAt,
+        updatedAt: found.updatedAt,
+      },
+      state: found.state,
       storageMode: 'local',
     };
   }
@@ -139,31 +212,35 @@ export async function apiSaveUserState(
   token: string,
   state: FoldWiseState
 ): Promise<{ user: AuthUser; storageMode: 'server' | 'local' } | null> {
-  if (token.startsWith('local-token:')) {
-    const nameKey = token.replace('local-token:', '');
-    const accounts = readLocalAccounts();
-    const idx = accounts.findIndex((a) => a.nameKey === nameKey);
-    if (idx === -1) return null;
+  const nameKey = state.studentName.trim().toLowerCase();
+  const accounts = readLocalAccounts();
+  const localIdx = accounts.findIndex((a) => a.nameKey === nameKey);
+  if (localIdx !== -1) {
     const now = new Date().toISOString();
-    accounts[idx] = {
-      ...accounts[idx],
+    accounts[localIdx] = {
+      ...accounts[localIdx],
       name: state.studentName,
       grade: state.studentGrade,
       updatedAt: now,
       state,
     };
     writeLocalAccounts(accounts);
+  }
+
+  if (token.startsWith('local-token:')) {
+    if (localIdx === -1) return null;
     return {
       user: {
-        id: accounts[idx].id,
-        name: accounts[idx].name,
-        grade: accounts[idx].grade,
-        createdAt: accounts[idx].createdAt,
-        updatedAt: now,
+        id: accounts[localIdx].id,
+        name: accounts[localIdx].name,
+        grade: accounts[localIdx].grade,
+        createdAt: accounts[localIdx].createdAt,
+        updatedAt: accounts[localIdx].updatedAt,
       },
       storageMode: 'local',
     };
   }
+
   try {
     const res = await fetch('/api/user/state', {
       method: 'PUT',
@@ -193,7 +270,11 @@ export async function apiLogout(token: string | null) {
   }
 }
 
-export async function apiDeleteAccount(token: string): Promise<boolean> {
+export async function apiDeleteAccount(token: string, studentName?: string): Promise<boolean> {
+  if (studentName) {
+    const nameKey = studentName.trim().toLowerCase();
+    writeLocalAccounts(readLocalAccounts().filter((a) => a.nameKey !== nameKey));
+  }
   if (token.startsWith('local-token:')) {
     const nameKey = token.replace('local-token:', '');
     writeLocalAccounts(readLocalAccounts().filter((a) => a.nameKey !== nameKey));

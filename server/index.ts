@@ -12,8 +12,9 @@ import {
 import {
   deleteUserByToken,
   getUserByToken,
-  loginOrCreateUser,
+  loginUser,
   logoutByToken,
+  registerUser,
   saveUserStateByToken,
 } from './authStore.js';
 import { SERVER_DEFAULT_STATE } from './seedData.js';
@@ -41,14 +42,27 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-/* ---------------- Unified Start-Page Login & Per-User Data Persistence ---------------- */
-app.post('/api/auth/login', (req, res) => {
+/* ---------------- Permanent Account Creation & Sign In ---------------- */
+app.post('/api/auth/register', (req, res) => {
   const { fullName, password, grade, initialState } = req.body ?? {};
-  const result = loginOrCreateUser({
+  const result = registerUser({
     fullName: String(fullName || ''),
     password: String(password || ''),
     grade: (grade as GradeLevel) || 'Grade 8',
     initialState: initialState || SERVER_DEFAULT_STATE,
+  });
+  if ('error' in result) {
+    res.status(409).json({ error: result.error });
+    return;
+  }
+  res.json(result);
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { fullName, password } = req.body ?? {};
+  const result = loginUser({
+    fullName: String(fullName || ''),
+    password: String(password || ''),
   });
   if ('error' in result) {
     res.status(401).json({ error: result.error });

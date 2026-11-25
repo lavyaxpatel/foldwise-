@@ -8,8 +8,9 @@ import {
 import {
   apiDeleteAccount,
   apiFetchMe,
-  apiLoginOrEnroll,
+  apiLogin,
   apiLogout,
+  apiRegister,
   apiSaveUserState,
 } from '../services/authClient';
 import type {
@@ -99,11 +100,15 @@ interface FoldWiseContextValue {
   authUser: AuthUser | null;
   authReady: boolean;
   syncStatus: 'synced' | 'saving' | 'local';
-  loginAtStart: (params: {
+  signInAccount: (params: {
+    fullName: string;
+    password: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  createAccount: (params: {
     fullName: string;
     password: string;
     grade: GradeLevel;
-  }) => Promise<{ ok: boolean; error?: string; isNew?: boolean }>;
+  }) => Promise<{ ok: boolean; error?: string }>;
   logoutAccount: () => Promise<void>;
   deleteAccount: () => Promise<boolean>;
   syncNow: () => Promise<void>;
@@ -195,7 +200,24 @@ export const FoldWiseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => clearTimeout(timer);
   }, [state, authToken, authUser?.id]);
 
-  const loginAtStart = async (params: {
+  const signInAccount = async (params: { fullName: string; password: string }) => {
+    const res = await apiLogin({
+      fullName: params.fullName,
+      password: params.password,
+    });
+    if ('error' in res) return { ok: false, error: res.error };
+
+    skipNextSyncRef.current = true;
+    localStorage.setItem(SESSION_TOKEN_KEY, res.token);
+    setAuthToken(res.token);
+    setAuthUser(res.user);
+    setState({ ...DEFAULT_STATE, ...res.state });
+    setSyncStatus(res.storageMode === 'server' ? 'synced' : 'local');
+    setRoute('home');
+    return { ok: true };
+  };
+
+  const createAccount = async (params: {
     fullName: string;
     password: string;
     grade: GradeLevel;
@@ -207,7 +229,7 @@ export const FoldWiseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       xp: 0,
       streak: 0,
     };
-    const res = await apiLoginOrEnroll({
+    const res = await apiRegister({
       fullName: params.fullName,
       password: params.password,
       grade: params.grade,
@@ -222,7 +244,7 @@ export const FoldWiseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setState({ ...DEFAULT_STATE, ...res.state });
     setSyncStatus(res.storageMode === 'server' ? 'synced' : 'local');
     setRoute('home');
-    return { ok: true, isNew: res.isNew };
+    return { ok: true };
   };
 
   const logoutAccount = async () => {
@@ -236,7 +258,7 @@ export const FoldWiseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const deleteAccount = async () => {
     if (!authToken) return false;
-    const ok = await apiDeleteAccount(authToken);
+    const ok = await apiDeleteAccount(authToken, authUser?.name);
     if (ok) {
       localStorage.removeItem(SESSION_TOKEN_KEY);
       localStorage.removeItem(STORAGE_KEY);
@@ -479,7 +501,8 @@ export const FoldWiseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         authUser,
         authReady,
         syncStatus,
-        loginAtStart,
+        signInAccount,
+        createAccount,
         logoutAccount,
         deleteAccount,
         syncNow,
